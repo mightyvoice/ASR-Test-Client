@@ -5,6 +5,18 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     >
+
+    <EditText
+        android:id="@+id/serverIpEditText"
+        android:layout_width="fill_parent"
+        android:layout_height="60dp" />
+
+    <Button
+        android:id="@+id/connectToServerButton"
+        android:text="Connect to Server"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content" />
+
     <Button
         android:id="@+id/startCloudRecognitionButton"
         android:text="NUANCE ASR"
@@ -14,21 +26,8 @@
     <Button
         android:id="@+id/startGoogleAsrButton"
         android:text="Google ASR"
-        android:onClick="startGoogleASR"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content" />
-
-    <Button
-        android:id="@+id/startAudioRecordButton"
-        android:text="Start Record"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content" />
-
-    <Button
-        android:id="@+id/stopAudioRecordButton"
-        android:text="Stop and Play"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"/>
 
     <TextView
         android:id="@+id/cloudResultEditText"

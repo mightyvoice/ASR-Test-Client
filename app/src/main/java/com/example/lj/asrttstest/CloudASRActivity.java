@@ -28,6 +28,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 /////////test git
@@ -58,6 +59,10 @@ import com.nuance.dragon.toolkit.cloudservices.recognizer.CloudRecognizer;
 import com.nuance.dragon.toolkit.cloudservices.recognizer.RecogSpec;
 import com.nuance.dragon.toolkit.data.Data;
 import com.nuance.dragon.toolkit.util.Logger;
+import com.nuance.dragon.toolkit.vocon.ParamSpecs;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 public class CloudASRActivity extends AppCompatActivity
@@ -77,19 +82,17 @@ public class CloudASRActivity extends AppCompatActivity
     private CalllogSender      _calllogSender;
     private AudioType          _audioType;
     private TTSService         _ttsService;
+
+    //View
+    private EditText editIpView;
+    private Button connectToServerButton;
+    private Button startGoogleAsrButton;
+    private Button startNuanceAsrButton;
     private TextView resultTextView;
 
-    /* Recording audio and play */
-    private int curAudioFileID = 0;
-    private MediaRecorder googleRecorder;
-    private File googleAudioFile;
-    private File googleAudioDir;
-    private boolean sdCardExist;
-    private String tmpAudioName = "xxx";
-
     /* Connect to the server */
-    private final String serverIP = "192.168.2.6";
-    private final int serverPort = 8888;
+    private String serverIP = "10.118.115.173";
+    private final int serverPort = 13458;
     private Socket clientSocket;
     private BufferedWriter clientWriter;
     private BufferedReader clientReader;
@@ -99,33 +102,44 @@ public class CloudASRActivity extends AppCompatActivity
      * Called when the activity is first created.
      */
     @Override
-    public void onCreate(Bundle savedInstanceState)
-    {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_cloud_asr);
 
         // UI initialization
-        resultTextView = (TextView)findViewById(R.id.cloudResultEditText);
-        final Button startRecognitionButton = (Button) findViewById(R.id.startCloudRecognitionButton);
-        startRecognitionButton.setEnabled(true);
-        final Button startGoogleAsrButton = (Button) findViewById(R.id.startGoogleAsrButton);
+        editIpView = (EditText) findViewById(R.id.serverIpEditText);
+        connectToServerButton = (Button) findViewById(R.id.connectToServerButton);
+        startNuanceAsrButton = (Button) findViewById(R.id.startCloudRecognitionButton);
+        startGoogleAsrButton = (Button) findViewById(R.id.startGoogleAsrButton);
+        resultTextView = (TextView) findViewById(R.id.cloudResultEditText);
+
+        editIpView.setText("192.168.10.4");
+        startNuanceAsrButton.setEnabled(false);
         startGoogleAsrButton.setEnabled(false);
 
-        final Button startRecordingButton = (Button) findViewById(R.id.startAudioRecordButton);
-        final Button stopRecordingButton = (Button) findViewById(R.id.stopAudioRecordButton);
-
-        new Thread(new ClientThread()).start();
+        connectToServerButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                serverIP = editIpView.getText().toString();
+                new Thread(new ClientThread()).start();
+            }
+        });
 
         severMessageHandler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
-                if(msg.what == 0){
+                if (msg.what == 0) {
                     startGoogleASR(getCurrentFocus());
-                }
-                else if(msg.what == 1){
-                    startRecognitionButton.performClick();
+                } else if (msg.what == 1) {
+                    onClickStartNuanceASR();
+                } else if (msg.what == 2) {
+                    resultTextView.setText("Successful connect to server");
+                    connectToServerButton.setEnabled(false);
+                } else if (msg.what == 3) {
+                    resultTextView.setText("Fail to connect to server");
+                    connectToServerButton.setEnabled(true);
                 }
             }
         };
@@ -133,26 +147,16 @@ public class CloudASRActivity extends AppCompatActivity
         _audioType = AudioType.SPEEX_WB;
 
         reCreateCloudRecognizer();
+    }
 
-        startRecognitionButton.setOnClickListener(new View.OnClickListener()
-        {
-            @Override
-            public void onClick(View v)
-            {
-                startRecognitionButton.setEnabled(false);
-//                initGoogleRecoder();
-//                stopRecognitionButton.setEnabled(true);
-                if(curAudioFileID >= 3){
-                    startRecognitionButton.setEnabled(false);
-                    resultTextView.setText("Finish All Files Nuance ASR");
-                    return;
-                }
-                resultTextView.setText("");
+    private void onClickStartNuanceASR() {
+        startNuanceAsrButton.setEnabled(false);
+        resultTextView.setText("");
 
-                String resultmodeName = "No Partial Results";
+        String resultmodeName = "No Partial Results";
 
-                // Set-up audio chaining
-                recorder = new MicrophoneRecorderSource(AudioType.PCM_16k);
+        // Set-up audio chaining
+        recorder = new MicrophoneRecorderSource(AudioType.PCM_16k);
 //                curAudioFileID++;
 //                int resourceID = (getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", "raw", getPackageName()));
 //                Log.d("sss", " resID: "+new Integer(resourceID).toString());
@@ -169,152 +173,81 @@ public class CloudASRActivity extends AppCompatActivity
 //                Log.d("sss", "chunks: " + recorder.getChunksAvailable());
 //                Log.d("sss", "isempty: " + recorder.getChunksAvailable());
 
-                speexPipe = new SpeexEncoderPipe();
-                endpointerPipe = new EndPointerPipe(new SpeechDetectionListener() {
+        speexPipe = new SpeexEncoderPipe();
+        endpointerPipe = new EndPointerPipe(new SpeechDetectionListener() {
+            @Override
+            public void onStartOfSpeech() {
+                resultTextView.setText("Start of Speech...");
+            }
+
+            @Override
+            public void onEndOfSpeech() {
+                resultTextView.setText("End of Speech...");
+                _cloudRecognizer.processResult();
+                startNuanceAsrButton.setEnabled(true);
+                stopRecording();
+                new Thread(new ClientSendThread(getAsrResultJsonStr(0, "###"))).start();
+            }
+        });
+
+        // Start recording and recognition
+        recorder.startRecording();
+        speexPipe.connectAudioSource(recorder);
+        endpointerPipe.connectAudioSource(speexPipe);
+        _cloudRecognizer.startRecognition(createNuanceRecogSpec(resultmodeName),
+                endpointerPipe,
+                new CloudRecognizer.Listener() {
                     @Override
-                    public void onStartOfSpeech() {
-                        resultTextView.setText("Start of Speech...");
+                    public void onResult(CloudRecognitionResult result) {
+                        java.lang.String topResult = parseNuanceResults(result);
+                        if (topResult != null) {
+                            resultTextView.setText(topResult);
+                            new Thread(new ClientSendThread(getAsrResultJsonStr(2, topResult))).start();
+                        }
+                        startNuanceAsrButton.setEnabled(true);
                     }
 
                     @Override
-                    public void onEndOfSpeech() {
-                        resultTextView.setText("End of Speech...");
-                        _cloudRecognizer.processResult();
-                        startRecognitionButton.setEnabled(true);
-                        stopRecording();
-                        new Thread(new ClientSendThread()).start();
+                    public void onError(CloudRecognitionError error) {
+//                                resultTextView.setText(error.toString());
+                        String err = error.toJSON().toString();
+                        resultTextView.setText("speech not recognized");
+                        Log.d("sss", err);
+                        startNuanceAsrButton.setEnabled(true);
+                        new Thread(new ClientSendThread(getAsrResultJsonStr(2, "Error"))).start();
+                    }
+
+                    @Override
+                    public void onTransactionIdGenerated(String transactionId) {
                     }
                 });
 
-                // Start recording and recognition
-                recorder.startRecording();
-                speexPipe.connectAudioSource(recorder);
-                endpointerPipe.connectAudioSource(speexPipe);
-                _cloudRecognizer.startRecognition(createNuanceRecogSpec(resultmodeName),
-                        endpointerPipe,
-                        new CloudRecognizer.Listener()
-                        {
-                            @Override
-                            public void onResult(CloudRecognitionResult result) {
-                                java.lang.String topResult = parseNuanceResults(result);
-                                if(topResult != null) {
-                                    resultTextView.setText(topResult);
-                                }
-                                startRecognitionButton.setEnabled(true);
-//                                stopGoogleRecording();
-//                                playFile(googleAudioFile);
-                            }
-
-                            @Override
-                            public void onError(CloudRecognitionError error) {
-//                                resultTextView.setText(error.toString());
-                                String err = error.toJSON().toString();
-                                resultTextView.setText("speech not recognized");
-                                Log.d("sss", err);
-                                startRecognitionButton.setEnabled(true);
-//                                stopGoogleRecording();
-//                                playFile(googleAudioFile);
-                            }
-
-                            @Override
-                            public void onTransactionIdGenerated(String transactionId) {
-                            }
-                        });
-
-                if (_appSessionLeadEvent != null) {
-                    SessionEventBuilder eventBuilder = _appSessionLeadEvent.createChildEventBuilder("cloud recognition");
-                    eventBuilder.putString("start", "recognition started");
-                    eventBuilder.commit();
-                }
-            }
-        });
-
-        startRecordingButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                initGoogleRecoder();
-                startRecordingButton.setEnabled(false);
-            }
-        });
-
-        stopRecordingButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                stopGoogleRecording();
-                if (googleAudioFile != null && googleAudioFile.exists()) {
-                    playFile(googleAudioFile);
-                }
-                else{
-                    Log.d("sss", "No audio file");
-                }
-                startRecordingButton.setEnabled(true);
-            }
-        });
+        if (_appSessionLeadEvent != null) {
+            SessionEventBuilder eventBuilder = _appSessionLeadEvent.createChildEventBuilder("cloud recognition");
+            eventBuilder.putString("start", "recognition started");
+            eventBuilder.commit();
+        }
     }
 
-    private void initGoogleRecoder(){
-        sdCardExist = Environment.getExternalStorageState().equals(
-                android.os.Environment.MEDIA_MOUNTED);
-        if (sdCardExist) {
-            googleAudioDir = Environment.getExternalStorageDirectory();
-        }
+    private String getAsrResultJsonStr(int type, String result){
+        JSONObject tmp = new JSONObject();
         try {
-            googleAudioFile = File.createTempFile(tmpAudioName+String.valueOf(System.currentTimeMillis()), ".amr",
-                    googleAudioDir);
-        } catch (IOException e) {
+            if(type == 0) tmp.put("result", "###");
+            else tmp.put("result", result);
+            if (type == 1) {
+                tmp.put("type", "google");
+            }
+            else if (type == 2){
+                tmp.put("type", "nuance");
+            }
+            else{
+                tmp.put("type", "end");
+            }
+        }catch (JSONException e){
             e.printStackTrace();
+            return "\n";
         }
-        googleRecorder = new MediaRecorder();
-        googleRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        googleRecorder.setOutputFormat(MediaRecorder.OutputFormat.RAW_AMR);
-        googleRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-        googleRecorder.setOutputFile(googleAudioFile.getAbsolutePath());
-        try {
-            googleRecorder.prepare();
-            googleRecorder.start();
-        } catch (IllegalStateException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void stopGoogleRecording(){
-        googleRecorder.stop();
-        googleRecorder.release();
-    }
-
-    private void playFile(File f)
-    {
-        Intent intent = new Intent();
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.setAction(android.content.Intent.ACTION_VIEW);
-        String type = getFileType(f);
-        intent.setDataAndType(Uri.fromFile(f), type);
-        startActivity(intent);
-    }
-
-    private String getFileType(File f)
-    {
-        String end = f.getName().substring(
-                f.getName().lastIndexOf(".") + 1, f.getName().length())
-                .toLowerCase();
-        String type = "";
-        if (end.equals("mp3") || end.equals("aac") || end.equals("aac")
-                || end.equals("amr") || end.equals("mpeg")
-                || end.equals("mp4"))
-        {
-            type = "audio";
-        } else if (end.equals("jpg") || end.equals("gif")
-                || end.equals("png") || end.equals("jpeg"))
-        {
-            type = "image";
-        } else
-        {
-            type = "*";
-        }
-        type += "/*";
-        return type;
+        return tmp.toString()+"\n";
     }
 
     private void stopRecording() {
@@ -485,49 +418,27 @@ public class CloudASRActivity extends AppCompatActivity
 
     public void startGoogleASR(View view){
 //        resultTextView.setText("");
+        startGoogleAsrButton.setEnabled(false);
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
         startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
-
     }
 
     @Override
-    protected void onActivityResult(int requestCode,int resultCode,Intent data){
-//        stopGoogleRecording();
-//        playFile(googleAudioFile);
+    protected void onActivityResult(int requestCode,int resultCode, Intent data){
+        startGoogleAsrButton.setEnabled(true);
+
         if (resultCode == RESULT_OK){
             ArrayList<String> textMatchlist = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
             if (!textMatchlist.isEmpty()){
                 resultTextView.setText(textMatchlist.get(0));
-//                if (textMatchlist.get(0).contains("search")){
-//                    String searchQuery = textMatchlist.get(0).replace("search"," ");
-//                    Intent search = new Intent(Intent.ACTION_WEB_SEARCH);
-//                    search.putExtra(SearchManager.QUERY,searchQuery);
-//                    startActivity(search);
-//                }
-//                else {
-//                    mlvTextMatches.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_expandable_list_item_1,textMatchlist));
-//                }
+                new Thread(new ClientSendThread(getAsrResultJsonStr(1, textMatchlist.get(0)))).start();
             }
         }
-        else if (resultCode == RecognizerIntent.RESULT_AUDIO_ERROR){
-            showToastMessage("Audio Error");
-
-        }
-        else if ((resultCode == RecognizerIntent.RESULT_CLIENT_ERROR)){
-            showToastMessage("Client Error");
-
-        }
-        else if (resultCode == RecognizerIntent.RESULT_NETWORK_ERROR){
-            showToastMessage("Network Error");
-        }
-        else if (resultCode == RecognizerIntent.RESULT_NO_MATCH){
-            showToastMessage("No Match");
-        }
-        else if (resultCode == RecognizerIntent.RESULT_SERVER_ERROR){
-            showToastMessage("Server Error");
+        else{
+            new Thread(new ClientSendThread(getAsrResultJsonStr(1, "Error"))).start();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -546,17 +457,30 @@ public class CloudASRActivity extends AppCompatActivity
                 clientWriter = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream(),"utf-8"));
                 clientReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 new Thread(new ClientReceiveThread()).start();
+                Message msg = new Message();
+                msg.what = 2;
+                severMessageHandler.sendMessage(msg);
             }catch (Exception e){
+                Log.d("sss", "Fail to connect to the server");
                 e.printStackTrace();
+                Message msg = new Message();
+                msg.what = 3;
+                severMessageHandler.sendMessage(msg);
             }
         }
     }
 
     private class ClientSendThread implements Runnable{
+        private String msgToSend = "";
+
+        public ClientSendThread(String msg){
+            msgToSend = msg;
+        }
+
         @Override
         public void run() {
             try {
-                clientWriter.write("End\n");
+                clientWriter.write(msgToSend);
                 clientWriter.flush();
             } catch (IOException e) {
                 e.printStackTrace();
