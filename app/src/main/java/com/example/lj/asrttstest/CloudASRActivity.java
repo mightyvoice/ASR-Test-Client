@@ -10,6 +10,7 @@ import android.os.Message;
 import android.speech.RecognizerIntent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -114,7 +115,8 @@ public class CloudASRActivity extends AppCompatActivity
         startGoogleAsrButton = (Button) findViewById(R.id.startGoogleAsrButton);
         resultTextView = (TextView) findViewById(R.id.cloudResultEditText);
 
-        editIpView.setText("192.168.10.4");
+        editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
+        editIpView.setText("10.118.116.218");
         startNuanceAsrButton.setEnabled(false);
         startGoogleAsrButton.setEnabled(false);
 
