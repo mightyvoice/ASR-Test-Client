@@ -1,5 +1,6 @@
 package com.example.lj.asrttstest;
 
+import android.content.Context;
 import android.content.Intent;
 import android.media.MediaRecorder;
 import android.net.Uri;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -65,6 +67,8 @@ import com.nuance.dragon.toolkit.vocon.ParamSpecs;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.xml.datatype.DatatypeConstants;
+
 
 public class CloudASRActivity extends AppCompatActivity
 {
@@ -97,8 +101,15 @@ public class CloudASRActivity extends AppCompatActivity
     private Socket clientSocket;
     private BufferedWriter clientWriter;
     private BufferedReader clientReader;
-    private Handler severMessageHandler;
+    private Handler messageHandler;
+    private String asrResult = "";
+    private Context context;
 
+
+    private int curResourceID = 1;
+    private int[] allResourceID;
+    private String[] allAudioFileNames;
+    private String allAsrResult = "";
     /**
      * Called when the activity is first created.
      */
@@ -117,31 +128,31 @@ public class CloudASRActivity extends AppCompatActivity
 
         editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
         editIpView.setText("10.118.116.218");
-        startNuanceAsrButton.setEnabled(false);
+//        startNuanceAsrButton.setEnabled(false);
         startGoogleAsrButton.setEnabled(false);
 
         connectToServerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                startNuanceAsrButton.setEnabled(false);
                 serverIP = editIpView.getText().toString();
-                new Thread(new ClientThread()).start();
             }
         });
 
-        severMessageHandler = new Handler() {
+        context = getApplicationContext();
+        messageHandler = new Handler(){
             @Override
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
-                if (msg.what == 0) {
-                    startGoogleASR(getCurrentFocus());
-                } else if (msg.what == 1) {
-                    onClickStartNuanceASR();
-                } else if (msg.what == 2) {
-                    resultTextView.setText("Successful connect to server");
-                    connectToServerButton.setEnabled(false);
-                } else if (msg.what == 3) {
-                    resultTextView.setText("Fail to connect to server");
-                    connectToServerButton.setEnabled(true);
+                if(msg.what == 1){
+                    resultTextView.setText(asrResult);
+                    curResourceID++;
+                    if(curResourceID < allResourceID.length){
+//                        new Thread()
+                    }
+                }
+                if(msg.what == 2){
+                    resultTextView.setText("Error");
                 }
             }
         };
@@ -149,46 +160,66 @@ public class CloudASRActivity extends AppCompatActivity
         _audioType = AudioType.SPEEX_WB;
 
         reCreateCloudRecognizer();
+
+        processAllAudioFiles();
+
+//        new Thread(new fileAsrThread(allResourceID[curResourceID]));
+
+        startNuanceAsrButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startNuanceAsrButton.setEnabled(false);
+                onClickStartNuanceASR(allResourceID[curResourceID]);
+            }
+        });
     }
 
-    private void onClickStartNuanceASR() {
-        startNuanceAsrButton.setEnabled(false);
-        resultTextView.setText("");
+
+
+    private void processAllAudioFiles(){
+        Field[] fields = R.raw.class.getFields();
+        allResourceID = new int[fields.length];
+        allAudioFileNames = new String[fields.length];
+        for(int i = 0; i < fields.length; i++){
+            String file_name = fields[i].getName();
+            int resource_id = getResources().getIdentifier(file_name, "raw", getPackageName());
+            allResourceID[i] = resource_id;
+            allAudioFileNames[i] = file_name;
+//            Log.d("sss", "file name: "+file_name+"  ID: "+ String.valueOf(resource_id));
+//            new Thread(new fileAsrThread(resource_id)).start();
+        }
+    }
+
+    private void onClickStartNuanceASR(int resourceID) {
+//        startNuanceAsrButton.setEnabled(false);
+//        resultTextView.setText("");
 
         String resultmodeName = "No Partial Results";
 
         // Set-up audio chaining
-        recorder = new MicrophoneRecorderSource(AudioType.PCM_16k);
-//                curAudioFileID++;
-//                int resourceID = (getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", "raw", getPackageName()));
-//                Log.d("sss", " resID: "+new Integer(resourceID).toString());
-//                Log.d("sss", "audio" + String.valueOf(curAudioFileID) + "_16k");
-//                recorder = new StreamingFileRecorderSource(
-//                        AudioType.PCM_16k,
-//                        400,
-//                        getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", "raw", getPackageName()),
-//                        getApplicationContext());
-////                        googleAudioFile.getAbsolutePath(),
-////                        true);
-//                Log.d("sss", " resId: " + getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", null, getPackageName()));
-//                Log.d("sss", "audio type: " + recorder.getAudioType());
-//                Log.d("sss", "chunks: " + recorder.getChunksAvailable());
-//                Log.d("sss", "isempty: " + recorder.getChunksAvailable());
+//        recorder = new MicrophoneRecorderSource(AudioType.PCM_16k);
+        recorder = new StreamingFileRecorderSource(
+                AudioType.PCM_16k,
+                400,
+                resourceID,
+                context);
+//        Log.d("sss", "audio type: " + recorder.getAudioType());
+//        Log.d("sss", "chunks: " + recorder.getChunksAvailable());
+//        Log.d("sss", "isempty: " + recorder.getChunksAvailable());
 
         speexPipe = new SpeexEncoderPipe();
         endpointerPipe = new EndPointerPipe(new SpeechDetectionListener() {
             @Override
             public void onStartOfSpeech() {
-                resultTextView.setText("Start of Speech...");
+//                resultTextView.setText("Start of Speech...");
             }
 
             @Override
             public void onEndOfSpeech() {
-                resultTextView.setText("End of Speech...");
-                _cloudRecognizer.processResult();
-                startNuanceAsrButton.setEnabled(true);
+//                resultTextView.setText("End of Speech...");
+//                _cloudRecognizer.processResult();
+//                startNuanceAsrButton.setEnabled(true);
                 stopRecording();
-                new Thread(new ClientSendThread(getAsrResultJsonStr(0, "###"))).start();
             }
         });
 
@@ -204,9 +235,18 @@ public class CloudASRActivity extends AppCompatActivity
                         java.lang.String topResult = parseNuanceResults(result);
                         if (topResult != null) {
                             resultTextView.setText(topResult);
-                            new Thread(new ClientSendThread(getAsrResultJsonStr(2, topResult))).start();
+                            String[] tmp = allAudioFileNames[curResourceID].split("_");
+                            String tmp_result = tmp[1]+"_"+tmp[2]+"\n"+topResult;
+                            Log.d("sss", tmp_result);
+                            allAsrResult += tmp[1]+"_"+tmp[2]+"\n"+topResult+"\n";
+                            curResourceID++;
+                            if(curResourceID < allResourceID.length){
+                                onClickStartNuanceASR(allResourceID[curResourceID]);
+                            }
+                            else{
+                                sendJsonToEmail(allAsrResult);
+                            }
                         }
-                        startNuanceAsrButton.setEnabled(true);
                     }
 
                     @Override
@@ -214,9 +254,19 @@ public class CloudASRActivity extends AppCompatActivity
 //                                resultTextView.setText(error.toString());
                         String err = error.toJSON().toString();
                         resultTextView.setText("speech not recognized");
-                        Log.d("sss", err);
-                        startNuanceAsrButton.setEnabled(true);
-                        new Thread(new ClientSendThread(getAsrResultJsonStr(2, "Error"))).start();
+                        String topResult = "Speech not recognized";
+                        resultTextView.setText(topResult);
+                        String[] tmp = allAudioFileNames[curResourceID].split("_");
+                        allAsrResult += tmp[1]+"_"+tmp[2]+"\n"+topResult+"\n";
+                        String tmp_result = tmp[1]+"_"+tmp[2]+"\n"+topResult;
+                        Log.d("sss", tmp_result);
+                        curResourceID++;
+                        if(curResourceID < allResourceID.length){
+                            onClickStartNuanceASR(allResourceID[curResourceID]);
+                        }
+                        else{
+                            sendJsonToEmail(allAsrResult);
+                        }
                     }
 
                     @Override
@@ -229,6 +279,14 @@ public class CloudASRActivity extends AppCompatActivity
             eventBuilder.putString("start", "recognition started");
             eventBuilder.commit();
         }
+    }
+
+    private void sendJsonToEmail(String result) {
+        Intent data = new Intent(Intent.ACTION_SENDTO);
+        data.setData(Uri.parse("mailto:rpbloom@gmail.com"));
+        data.putExtra(Intent.EXTRA_SUBJECT, "All Nuance ASR Result");
+        data.putExtra(Intent.EXTRA_TEXT, result);
+        startActivity(data);
     }
 
     private String getAsrResultJsonStr(int type, String result){
@@ -427,87 +485,25 @@ public class CloudASRActivity extends AppCompatActivity
         startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode,int resultCode, Intent data){
-        startGoogleAsrButton.setEnabled(true);
-
-        if (resultCode == RESULT_OK){
-            ArrayList<String> textMatchlist = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-
-            if (!textMatchlist.isEmpty()){
-                resultTextView.setText(textMatchlist.get(0));
-                new Thread(new ClientSendThread(getAsrResultJsonStr(1, textMatchlist.get(0)))).start();
-            }
-        }
-        else{
-            new Thread(new ClientSendThread(getAsrResultJsonStr(1, "Error"))).start();
-        }
-        super.onActivityResult(requestCode, resultCode, data);
-    }
-
     void  showToastMessage(String message){
 
         Toast.makeText(this,message,Toast.LENGTH_LONG).show();
     }
 
-    private class ClientThread implements Runnable{
-        @Override
-        public void run() {
-            try{
-                clientSocket = new Socket();
-                clientSocket.connect(new InetSocketAddress(serverIP, serverPort),5000);
-                clientWriter = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream(),"utf-8"));
-                clientReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                new Thread(new ClientReceiveThread()).start();
-                Message msg = new Message();
-                msg.what = 2;
-                severMessageHandler.sendMessage(msg);
-            }catch (Exception e){
-                Log.d("sss", "Fail to connect to the server");
-                e.printStackTrace();
-                Message msg = new Message();
-                msg.what = 3;
-                severMessageHandler.sendMessage(msg);
-            }
-        }
-    }
+    private class fileAsrThread implements Runnable{
 
-    private class ClientSendThread implements Runnable{
-        private String msgToSend = "";
+        private int resource_id = 0;
 
-        public ClientSendThread(String msg){
-            msgToSend = msg;
+        public fileAsrThread(int _id){
+            resource_id = _id;
         }
 
         @Override
         public void run() {
-            try {
-                clientWriter.write(msgToSend);
-                clientWriter.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
+            if(resource_id > 0){
+                onClickStartNuanceASR(resource_id);
             }
         }
     }
 
-    private class ClientReceiveThread implements Runnable{
-        @Override
-        public void run() {
-            try {
-                while(clientSocket.isConnected()){
-                    String msg = clientReader.readLine();
-                    Message cmd = new Message();
-                    if(msg.equals("Google")){
-                        cmd.what = 0;
-                    }
-                    if(msg.equals("Nuance")){
-                        cmd.what = 1;
-                    }
-                    severMessageHandler.sendMessage(cmd);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
 }
