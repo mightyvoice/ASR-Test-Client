@@ -127,9 +127,8 @@ public class CloudASRActivity extends AppCompatActivity
         resultTextView = (TextView) findViewById(R.id.cloudResultEditText);
 
         editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
-        editIpView.setText("10.118.116.218");
-//        startNuanceAsrButton.setEnabled(false);
         startGoogleAsrButton.setEnabled(false);
+        connectToServerButton.setEnabled(false);
 
         connectToServerButton.setOnClickListener(new View.OnClickListener() {
             @Override
