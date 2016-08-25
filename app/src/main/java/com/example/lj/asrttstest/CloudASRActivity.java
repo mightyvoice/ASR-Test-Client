@@ -7,7 +7,9 @@ import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
@@ -40,15 +42,21 @@ public class CloudASRActivity extends AppCompatActivity
 {
     private static  final int VOICE_RECOGNITION_REQUEST_CODE = 1001;
 
+    private static  final int GOOGLE_ASR_AUDIO_PLAY_GAP = 1000;
+
+    private static final String TAG = "sss";
+
     private EditText editIpView;
     private Button connectToServerButton;
     private Button startGoogleAsrButton;
     private Button startNuanceAsrButton;
     private TextView resultTextView;
 
+    private SpeechRecognizer speechRecognizer;
+
     /* Connect to the server */
-    private String serverIP = "192.168.2.79";
-    private final int serverPort = 14458;
+    private String serverIP = "10.118.117.21";
+    private final int serverPort = 14459;
     private Socket clientSocket;
     private BufferedWriter clientWriter;
     private BufferedReader clientReader;
@@ -56,16 +64,12 @@ public class CloudASRActivity extends AppCompatActivity
     private String messageFromServer = "";
     private String googleAsrResult = "";
 
-    /**
-     * Called when the activity is first created.
-     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_cloud_asr);
 
-        // UI initialization
         editIpView = (EditText) findViewById(R.id.serverIpEditText);
         connectToServerButton = (Button) findViewById(R.id.connectToServerButton);
         startNuanceAsrButton = (Button) findViewById(R.id.startCloudRecognitionButton);
@@ -73,14 +77,68 @@ public class CloudASRActivity extends AppCompatActivity
         resultTextView = (TextView) findViewById(R.id.cloudResultEditText);
 
         editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
-        editIpView.setText("192.168.2.79");
+        editIpView.setText("Server IP: "+serverIP);
         startNuanceAsrButton.setEnabled(false);
         startGoogleAsrButton.setEnabled(false);
+
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        speechRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override
+            public void onReadyForSpeech(Bundle bundle) {
+//                Log.d(TAG, "onReadyForSpeech");
+            }
+
+            @Override
+            public void onBeginningOfSpeech() {
+//                Log.d(TAG, "onBeginningOfSpeech");
+            }
+
+            @Override
+            public void onRmsChanged(float v) {
+//                Log.d(TAG, "onRmsChanged");
+            }
+
+            @Override
+            public void onBufferReceived(byte[] bytes) {
+//                Log.d(TAG, "onBufferReceived");
+            }
+
+            @Override
+            public void onEndOfSpeech() {
+//                Log.d(TAG, "onEndOfSpeech");
+            }
+
+            @Override
+            public void onError(int i) {
+                Log.d("sss", "ASR error");
+//                new Thread(new ClientSendThread("error")).start();
+            }
+
+            @Override
+            public void onResults(Bundle bundle) {
+                Log.d(TAG, "onResults");
+                ArrayList<String> all_results = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                resultTextView.setText("ASR result: "+all_results.get(0));
+                Log.d("sss", "ASR result: "+all_results.get(0));
+                googleAsrResult = all_results.get(0);
+//                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
+            }
+
+            @Override
+            public void onPartialResults(Bundle bundle) {
+//                Log.d(TAG, "onPartialResults");
+            }
+
+            @Override
+            public void onEvent(int i, Bundle bundle) {
+//                Log.d(TAG, "onEvent");
+            }
+        });
 
         connectToServerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                serverIP = editIpView.getText().toString();
+                serverIP = editIpView.getText().toString().split(": ")[1];
                 new Thread(new ClientThread()).start();
             }
         });
@@ -90,7 +148,7 @@ public class CloudASRActivity extends AppCompatActivity
             public void onClick(View v) {
                 new Thread(new ClientSendThread("start")).start();
                 try {
-                    Thread.sleep(700);
+                    Thread.sleep(GOOGLE_ASR_AUDIO_PLAY_GAP);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -116,7 +174,7 @@ public class CloudASRActivity extends AppCompatActivity
                     connectToServerButton.setEnabled(true);
                 } else if (msg.what == 4){
                     resultTextView.setText("Finish all audio Files");
-//                    connectToServerButton.setEnabled(true);
+                    connectToServerButton.setEnabled(true);
                     startGoogleAsrButton.setEnabled(false);
                 }
             }
@@ -130,13 +188,14 @@ public class CloudASRActivity extends AppCompatActivity
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
+//        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
+//        speechRecognizer.startListening(intent);
     }
 
     @Override
     protected void onActivityResult(int requestCode,int resultCode, Intent data){
         startGoogleAsrButton.setEnabled(true);
-
         if (resultCode == RESULT_OK){
             ArrayList<String> textMatchlist = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
@@ -148,8 +207,8 @@ public class CloudASRActivity extends AppCompatActivity
             }
         }
         else{
+            Log.d("sss", "ASR error");
             new Thread(new ClientSendThread("error")).start();
-//            startNuanceAsrButton.performClick();
         }
 //        super.onActivityResult(requestCode, resultCode, data);
     }
@@ -205,6 +264,7 @@ public class CloudASRActivity extends AppCompatActivity
             try {
                 while(clientSocket.isConnected()){
                     messageFromServer = clientReader.readLine();
+                    if(messageFromServer == null) continue;
                     Log.d("sss", "from server: "+messageFromServer);
                     Message cmd = new Message();
                     if(messageFromServer.equals("rev")) {
@@ -214,7 +274,6 @@ public class CloudASRActivity extends AppCompatActivity
                     if(messageFromServer.equals("finish")) {
                         cmd.what = 4;
                         severMessageHandler.sendMessage(cmd);
-//                        break;
                     }
                 }
             } catch (IOException e) {
