@@ -92,16 +92,13 @@ public class CloudASRActivity extends AppCompatActivity
     private TextView resultTextView;
 
     /* Connect to the server */
-    private String serverIP = "10.118.115.173";
+    private String serverIP = "172.20.10.9";
     private final int serverPort = 13458;
     private Socket clientSocket;
     private BufferedWriter clientWriter;
     private BufferedReader clientReader;
     private Handler severMessageHandler;
 
-    /**
-     * Called when the activity is first created.
-     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -115,8 +112,8 @@ public class CloudASRActivity extends AppCompatActivity
         startGoogleAsrButton = (Button) findViewById(R.id.startGoogleAsrButton);
         resultTextView = (TextView) findViewById(R.id.cloudResultEditText);
 
-        editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
-        editIpView.setText("10.118.116.218");
+//        editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
+        editIpView.setText(serverIP);
         startNuanceAsrButton.setEnabled(false);
         startGoogleAsrButton.setEnabled(false);
 
@@ -157,24 +154,7 @@ public class CloudASRActivity extends AppCompatActivity
 
         String resultmodeName = "No Partial Results";
 
-        // Set-up audio chaining
         recorder = new MicrophoneRecorderSource(AudioType.PCM_16k);
-//                curAudioFileID++;
-//                int resourceID = (getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", "raw", getPackageName()));
-//                Log.d("sss", " resID: "+new Integer(resourceID).toString());
-//                Log.d("sss", "audio" + String.valueOf(curAudioFileID) + "_16k");
-//                recorder = new StreamingFileRecorderSource(
-//                        AudioType.PCM_16k,
-//                        400,
-//                        getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", "raw", getPackageName()),
-//                        getApplicationContext());
-////                        googleAudioFile.getAbsolutePath(),
-////                        true);
-//                Log.d("sss", " resId: " + getResources().getIdentifier("audio" + String.valueOf(curAudioFileID) + "_16k_pcm", null, getPackageName()));
-//                Log.d("sss", "audio type: " + recorder.getAudioType());
-//                Log.d("sss", "chunks: " + recorder.getChunksAvailable());
-//                Log.d("sss", "isempty: " + recorder.getChunksAvailable());
-
         speexPipe = new SpeexEncoderPipe();
         endpointerPipe = new EndPointerPipe(new SpeechDetectionListener() {
             @Override
