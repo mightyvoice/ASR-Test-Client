@@ -42,7 +42,7 @@ public class CloudASRActivity extends AppCompatActivity
 {
     private static  final int VOICE_RECOGNITION_REQUEST_CODE = 1001;
 
-    private static  final int GOOGLE_ASR_AUDIO_PLAY_GAP = 1000;
+    private static  final int GOOGLE_ASR_AUDIO_PLAY_GAP = 1300;
 
     private static final String TAG = "sss";
 
@@ -91,6 +91,7 @@ public class CloudASRActivity extends AppCompatActivity
             @Override
             public void onBeginningOfSpeech() {
 //                Log.d(TAG, "onBeginningOfSpeech");
+                resultTextView.setText("Speech begins");
             }
 
             @Override
@@ -106,12 +107,14 @@ public class CloudASRActivity extends AppCompatActivity
             @Override
             public void onEndOfSpeech() {
 //                Log.d(TAG, "onEndOfSpeech");
+                resultTextView.setText("Speech ends");
             }
 
             @Override
             public void onError(int i) {
                 Log.d("sss", "ASR error");
-//                new Thread(new ClientSendThread("error")).start();
+                resultTextView.setText("Error");
+                new Thread(new ClientSendThread("Speech not recognized")).start();
             }
 
             @Override
@@ -121,7 +124,7 @@ public class CloudASRActivity extends AppCompatActivity
                 resultTextView.setText("ASR result: "+all_results.get(0));
                 Log.d("sss", "ASR result: "+all_results.get(0));
                 googleAsrResult = all_results.get(0);
-//                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
+                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
             }
 
             @Override
@@ -188,9 +191,8 @@ public class CloudASRActivity extends AppCompatActivity
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
-//        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
-//        speechRecognizer.startListening(intent);
+//        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
+        speechRecognizer.startListening(intent);
     }
 
     @Override
