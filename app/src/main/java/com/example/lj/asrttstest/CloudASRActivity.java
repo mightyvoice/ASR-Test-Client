@@ -55,7 +55,7 @@ public class CloudASRActivity extends AppCompatActivity
     private SpeechRecognizer speechRecognizer;
 
     /* Connect to the server */
-    private String serverIP = "10.118.117.21";
+    private String serverIP = "10.118.116.90";
     private final int serverPort = 14459;
     private Socket clientSocket;
     private BufferedWriter clientWriter;
