@@ -110,6 +110,7 @@ public class CloudASRActivity extends AppCompatActivity
     private int[] allResourceID;
     private String[] allAudioFileNames;
     private String allAsrResult = "";
+
     /**
      * Called when the activity is first created.
      */
@@ -144,14 +145,10 @@ public class CloudASRActivity extends AppCompatActivity
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
                 if(msg.what == 1){
-                    resultTextView.setText(asrResult);
-                    curResourceID++;
-                    if(curResourceID < allResourceID.length){
-//                        new Thread()
-                    }
+                    onClickStartNuanceASR(allResourceID[curResourceID]);
                 }
                 if(msg.what == 2){
-                    resultTextView.setText("Error");
+                    onClickStartNuanceASR(allResourceID[curResourceID]);
                 }
             }
         };
@@ -172,7 +169,6 @@ public class CloudASRActivity extends AppCompatActivity
             }
         });
     }
-
 
 
     private void processAllAudioFiles(){
@@ -202,9 +198,6 @@ public class CloudASRActivity extends AppCompatActivity
                 400,
                 resourceID,
                 context);
-//        Log.d("sss", "audio type: " + recorder.getAudioType());
-//        Log.d("sss", "chunks: " + recorder.getChunksAvailable());
-//        Log.d("sss", "isempty: " + recorder.getChunksAvailable());
 
         speexPipe = new SpeexEncoderPipe();
         endpointerPipe = new EndPointerPipe(new SpeechDetectionListener() {
@@ -234,13 +227,15 @@ public class CloudASRActivity extends AppCompatActivity
                         java.lang.String topResult = parseNuanceResults(result);
                         if (topResult != null) {
                             resultTextView.setText(topResult);
-                            String[] tmp = allAudioFileNames[curResourceID].split("_");
-                            String tmp_result = tmp[1]+"_"+tmp[2]+"\n"+topResult;
+                            String tmp_result = allAudioFileNames[curResourceID]+"\n"+topResult;
                             Log.d("sss", tmp_result);
-                            allAsrResult += tmp[1]+"_"+tmp[2]+"\n"+topResult+"\n";
+                            allAsrResult += tmp_result+"\n";
                             curResourceID++;
                             if(curResourceID < allResourceID.length){
-                                onClickStartNuanceASR(allResourceID[curResourceID]);
+//                                onClickStartNuanceASR(allResourceID[curResourceID]);
+                                Message msg = new Message();
+                                msg.what = 1;
+                                messageHandler.sendMessage(msg);
                             }
                             else{
                                 sendJsonToEmail(allAsrResult);
@@ -254,14 +249,15 @@ public class CloudASRActivity extends AppCompatActivity
                         String err = error.toJSON().toString();
                         resultTextView.setText("speech not recognized");
                         String topResult = "Speech not recognized";
-                        resultTextView.setText(topResult);
-                        String[] tmp = allAudioFileNames[curResourceID].split("_");
-                        allAsrResult += tmp[1]+"_"+tmp[2]+"\n"+topResult+"\n";
-                        String tmp_result = tmp[1]+"_"+tmp[2]+"\n"+topResult;
+                        String tmp_result = allAudioFileNames[curResourceID]+"\n"+topResult;
                         Log.d("sss", tmp_result);
+                        allAsrResult += tmp_result+"\n";
                         curResourceID++;
                         if(curResourceID < allResourceID.length){
-                            onClickStartNuanceASR(allResourceID[curResourceID]);
+//                            onClickStartNuanceASR(allResourceID[curResourceID]);
+                            Message msg = new Message();
+                            msg.what = 2;
+                            messageHandler.sendMessage(msg);
                         }
                         else{
                             sendJsonToEmail(allAsrResult);
@@ -288,27 +284,6 @@ public class CloudASRActivity extends AppCompatActivity
         startActivity(data);
     }
 
-    private String getAsrResultJsonStr(int type, String result){
-        JSONObject tmp = new JSONObject();
-        try {
-            if(type == 0) tmp.put("result", "###");
-            else tmp.put("result", result);
-            if (type == 1) {
-                tmp.put("type", "google");
-            }
-            else if (type == 2){
-                tmp.put("type", "nuance");
-            }
-            else{
-                tmp.put("type", "end");
-            }
-        }catch (JSONException e){
-            e.printStackTrace();
-            return "\n";
-        }
-        return tmp.toString()+"\n";
-    }
-
     private void stopRecording() {
         if (endpointerPipe != null) {
             endpointerPipe.disconnectAudioSource();
@@ -327,8 +302,7 @@ public class CloudASRActivity extends AppCompatActivity
     }
 
     @Override
-    public void onDestroy()
-    {
+    public void onDestroy() {
         super.onDestroy();
 
         if (recorder != null)
@@ -393,8 +367,7 @@ public class CloudASRActivity extends AppCompatActivity
         return retRecogSpec;
     }
 
-    private String parseNuanceResults(CloudRecognitionResult cloudResult)
-    {
+    private String parseNuanceResults(CloudRecognitionResult cloudResult) {
         Data.Dictionary processedResult = cloudResult.getDictionary();
 
         // Parse results based on the "NVC_ASR_CMD"
@@ -425,8 +398,7 @@ public class CloudASRActivity extends AppCompatActivity
         return (len == 0 ? prompt : sentences.get(0));
     }
 
-    private void reCreateCloudRecognizer()
-    {
+    private void reCreateCloudRecognizer() {
         if (_cloudRecognizer != null)
             _cloudRecognizer.cancel();
         _cloudRecognizer = null;
@@ -474,35 +446,5 @@ public class CloudASRActivity extends AppCompatActivity
         _cloudRecognizer = new CloudRecognizer(_cloudServices);
     }
 
-
-    public void startGoogleASR(View view){
-//        resultTextView.setText("");
-        startGoogleAsrButton.setEnabled(false);
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
-        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
-    }
-
-    void  showToastMessage(String message){
-
-        Toast.makeText(this,message,Toast.LENGTH_LONG).show();
-    }
-
-    private class fileAsrThread implements Runnable{
-
-        private int resource_id = 0;
-
-        public fileAsrThread(int _id){
-            resource_id = _id;
-        }
-
-        @Override
-        public void run() {
-            if(resource_id > 0){
-                onClickStartNuanceASR(resource_id);
-            }
-        }
-    }
 
 }
