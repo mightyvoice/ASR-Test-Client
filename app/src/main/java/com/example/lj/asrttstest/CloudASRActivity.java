@@ -40,8 +40,6 @@ import org.json.JSONObject;
 
 public class CloudASRActivity extends AppCompatActivity
 {
-    private static  final int VOICE_RECOGNITION_REQUEST_CODE = 1001;
-
     private static  final int GOOGLE_ASR_AUDIO_PLAY_GAP = 1300;
 
     private static final String TAG = "sss";
@@ -85,28 +83,28 @@ public class CloudASRActivity extends AppCompatActivity
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onReadyForSpeech(Bundle bundle) {
-//                Log.d(TAG, "onReadyForSpeech");
+                Log.d(TAG, "onReadyForSpeech");
             }
 
             @Override
             public void onBeginningOfSpeech() {
-//                Log.d(TAG, "onBeginningOfSpeech");
+                Log.d(TAG, "onBeginningOfSpeech");
                 resultTextView.setText("Speech begins");
             }
 
             @Override
             public void onRmsChanged(float v) {
-//                Log.d(TAG, "onRmsChanged");
+                Log.d(TAG, "onRmsChanged");
             }
 
             @Override
             public void onBufferReceived(byte[] bytes) {
-//                Log.d(TAG, "onBufferReceived");
+                Log.d(TAG, "onBufferReceived");
             }
 
             @Override
             public void onEndOfSpeech() {
-//                Log.d(TAG, "onEndOfSpeech");
+                Log.d(TAG, "onEndOfSpeech");
                 resultTextView.setText("Speech ends");
             }
 
@@ -129,12 +127,12 @@ public class CloudASRActivity extends AppCompatActivity
 
             @Override
             public void onPartialResults(Bundle bundle) {
-//                Log.d(TAG, "onPartialResults");
+                Log.d(TAG, "onPartialResults");
             }
 
             @Override
             public void onEvent(int i, Bundle bundle) {
-//                Log.d(TAG, "onEvent");
+                Log.d(TAG, "onEvent");
             }
         });
 
