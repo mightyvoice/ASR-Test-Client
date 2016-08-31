@@ -95,12 +95,6 @@ public class CloudASRActivity extends AppCompatActivity
     private Button startNuanceAsrButton;
     private TextView resultTextView;
 
-    /* Connect to the server */
-    private String serverIP = "10.118.115.173";
-    private final int serverPort = 13458;
-    private Socket clientSocket;
-    private BufferedWriter clientWriter;
-    private BufferedReader clientReader;
     private Handler messageHandler;
     private String asrResult = "";
     private Context context;
@@ -135,7 +129,6 @@ public class CloudASRActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 startNuanceAsrButton.setEnabled(false);
-                serverIP = editIpView.getText().toString();
             }
         });
 
