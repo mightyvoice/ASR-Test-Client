@@ -77,7 +77,7 @@ public class CloudASRActivity extends AppCompatActivity
         editIpView.setInputType(InputType.TYPE_CLASS_NUMBER);
         editIpView.setText("Server IP: "+serverIP);
         startNuanceAsrButton.setEnabled(false);
-        startGoogleAsrButton.setEnabled(false);
+//        startGoogleAsrButton.setEnabled(false);
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
@@ -112,7 +112,7 @@ public class CloudASRActivity extends AppCompatActivity
             public void onError(int i) {
                 Log.d("sss", "ASR error");
                 resultTextView.setText("Error");
-                new Thread(new ClientSendThread("Speech not recognized")).start();
+//                new Thread(new ClientSendThread("Speech not recognized")).start();
             }
 
             @Override
@@ -122,7 +122,7 @@ public class CloudASRActivity extends AppCompatActivity
                 resultTextView.setText("ASR result: "+all_results.get(0));
                 Log.d("sss", "ASR result: "+all_results.get(0));
                 googleAsrResult = all_results.get(0);
-                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
+//                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
             }
 
             @Override
@@ -147,12 +147,12 @@ public class CloudASRActivity extends AppCompatActivity
         startGoogleAsrButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                new Thread(new ClientSendThread("start")).start();
-                try {
-                    Thread.sleep(GOOGLE_ASR_AUDIO_PLAY_GAP);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+//                new Thread(new ClientSendThread("start")).start();
+//                try {
+//                    Thread.sleep(GOOGLE_ASR_AUDIO_PLAY_GAP);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
                 startGoogleASR(getCurrentFocus());
             }
         });
@@ -185,7 +185,7 @@ public class CloudASRActivity extends AppCompatActivity
 
     public void startGoogleASR(View view){
 //        resultTextView.setText("");
-        startGoogleAsrButton.setEnabled(false);
+//        startGoogleAsrButton.setEnabled(false);
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
