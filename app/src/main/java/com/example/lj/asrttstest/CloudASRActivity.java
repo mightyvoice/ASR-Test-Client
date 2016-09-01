@@ -40,6 +40,7 @@ import org.json.JSONObject;
 
 public class CloudASRActivity extends AppCompatActivity
 {
+    private static final int VOICE_RECOGNITION_REQUEST_CODE = 1001;
     private static  final int GOOGLE_ASR_AUDIO_PLAY_GAP = 1300;
 
     private static final String TAG = "sss";
@@ -79,7 +80,7 @@ public class CloudASRActivity extends AppCompatActivity
         startNuanceAsrButton.setEnabled(false);
 //        startGoogleAsrButton.setEnabled(false);
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getApplicationContext());
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onReadyForSpeech(Bundle bundle) {
@@ -153,7 +154,7 @@ public class CloudASRActivity extends AppCompatActivity
 //                } catch (InterruptedException e) {
 //                    e.printStackTrace();
 //                }
-                startGoogleASR(getCurrentFocus());
+                startGoogleASR();
             }
         });
 
@@ -162,7 +163,7 @@ public class CloudASRActivity extends AppCompatActivity
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
                 if (msg.what == 0) {
-                    startGoogleASR(getCurrentFocus());
+                    startGoogleASR();
                 } else if (msg.what == 1) {
                     resultTextView.setText("Msg from Server: "+messageFromServer);
                     startGoogleAsrButton.performClick();
@@ -183,7 +184,7 @@ public class CloudASRActivity extends AppCompatActivity
 
     }
 
-    public void startGoogleASR(View view){
+    public void startGoogleASR(){
 //        resultTextView.setText("");
 //        startGoogleAsrButton.setEnabled(false);
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -191,6 +192,7 @@ public class CloudASRActivity extends AppCompatActivity
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
 //        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
         speechRecognizer.startListening(intent);
+
     }
 
     @Override
@@ -203,12 +205,12 @@ public class CloudASRActivity extends AppCompatActivity
                 resultTextView.setText("ASR result: "+textMatchlist.get(0));
                 Log.d("sss", "ASR result: "+textMatchlist.get(0));
                 googleAsrResult = textMatchlist.get(0);
-                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
+//                new Thread(new ClientSendThread("result-"+googleAsrResult)).start();
             }
         }
         else{
             Log.d("sss", "ASR error");
-            new Thread(new ClientSendThread("error")).start();
+//            new Thread(new ClientSendThread("error")).start();
         }
 //        super.onActivityResult(requestCode, resultCode, data);
     }
